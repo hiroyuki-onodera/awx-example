@@ -2,22 +2,24 @@
   gather_facts: true
   become: true
   vars:
-    awx_dockerhub_version: 1.0.2.289
-    awx_postgres_data_dir: /var/lib/pgdocker
+    awx_example_extra_vars:
+      - -e ansible_python_interpreter="$( which python3 || which python )"
+      #- -e dockerhub_version=13.0.0
+      #- -e postgres_data_dir=/var/lib/pgdocker # ~root/.awx/pgdocker
     awx_example_base_dir: /opt/awx
-    awx_example_version: 1.0.2
+    awx_example_version: 13.0.0
     awx_example_ssh_user: vagrant
-    awx_example_ssh_private_key_path: "/home/{{ awx_example_ssh_user }}/.ssh/insecure_private_key"
-    awx_example_tower_cli_config_path: "/home/{{ awx_example_ssh_user }}/.tower_cli.cfg"
+    awx_example_ssh_private_key_path: /home/{{ awx_example_ssh_user }}/.ssh/insecure_private_key
+    awx_example_tower_cli_config_path: /home/{{ awx_example_ssh_user }}/.tower_cli.cfg
     awx_example_tower_cli_config:
       host: http://localhost
       username: admin
       password: password
-      verify_ssl: False
+      verify_ssl: false
     awx_example_organization: Default
     awx_example_credential_name: vagrant
     awx_example_project_name: awx-example
-    awx_example_project_scm_url: "https://github.com/innossh/awx-example.git"
+    awx_example_project_scm_url: https://github.com/innossh/awx-example.git
     awx_example_inventory_name: servers
     awx_example_inventory_source_name: servers.ini
     awx_example_inventory_source_file: files/inventory
@@ -27,35 +29,44 @@
   tasks:
     - block: # install prerequisites
       - yum:
-          name: "{{ item }}"
-          state: latest
-        with_items:
+          name:
           - yum-utils
           - device-mapper-persistent-data
           - lvm2
+          - python-setuptools
+          - git
+          state: latest
 
       - command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
         args:
           creates: /etc/yum.repos.d/docker-ce.repo
 
       - yum:
-          name: "{{ item }}"
-          state: latest
-        with_items:
-          - git
-          - ansible
+          name:
           - docker-ce
-
-      - easy_install:
-          name: pip
+          - docker-ce-cli
+          - containerd.io
           state: latest
+
+      # cannot do twice
+      #- easy_install:
+          #name: pip
+          #state: latest
+
+      - name: 'shell: curl -kL https://bootstrap.pypa.io/get-pip.py | python'
+        shell: curl -kL https://bootstrap.pypa.io/get-pip.py | python
+        args:
+          creates: /bin/pip
 
       - pip:
-          name: "{{ item }}"
-          state: latest
-        with_items:
-          - docker-py
+          name:
+          - pip
+          - ansible
           - ansible-tower-cli
+          - docker-compose
+          - selinux
+          state: latest
+
         tags: tower-cli
 
       - systemd:
@@ -69,7 +80,7 @@
           dest: "{{ awx_example_base_dir }}"
           version: "{{ awx_example_version }}"
 
-      - command: "ansible-playbook -i inventory -e dockerhub_version={{ awx_dockerhub_version }} -e postgres_data_dir={{ awx_postgres_data_dir }} install.yml"
+      - shell: ansible-playbook -i inventory {{ vars.awx_example_extra_vars | join(' ') }} install.yml
         args:
           chdir: "{{ awx_example_base_dir }}/installer"
 
@@ -95,6 +106,9 @@
         until: result.status == 200
         retries: 10
         delay: 60
+
+      - pause:
+          seconds: 60
 
       - block: # Credentials
         - slurp:
