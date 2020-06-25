@@ -7,7 +7,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "awx-01" do |awx|
     awx.vm.provider "virtualbox" do |v|
-      v.memory = 2048
+      v.memory = 4096
       v.cpus = 2
     end
     awx.vm.hostname = "awx-01"
