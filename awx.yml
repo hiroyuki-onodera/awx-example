@@ -37,7 +37,7 @@
           - git
           state: latest
 
-      - command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      - shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
         args:
           creates: /etc/yum.repos.d/docker-ce.repo
 
@@ -104,7 +104,7 @@
           follow_redirects: none
         register: result
         until: result.status == 200
-        retries: 10
+        retries: 15
         delay: 60
 
       - pause:
@@ -125,7 +125,7 @@
 #            username: "{{ awx_example_ssh_user }}"
 #            ssh_key_data: "{{ awx_example_ssh_private_key_path }}"
 #            tower_config_file: "{{ awx_example_tower_cli_config_path }}"
-          command: >
+          shell: >
             tower-cli credential create --organization {{ awx_example_organization }}
             -n {{ awx_example_credential_name }}
             --credential-type Machine --inputs '{{ inputs | to_json }}'
@@ -133,6 +133,10 @@
             inputs:
               username: "{{ awx_example_ssh_user }}"
               ssh_key_data: "{{ ssh_key_data.content | b64decode | trim }}"
+          register: r
+
+        - debug: { var: r.cmd.splitlines() }
+        - debug: { var: r.stdout_lines }
 
         tags: tower-cli.credential
 
@@ -146,11 +150,15 @@
 #            scm_type: git
 #            scm_url: "{{ awx_example_project_scm_url }}"
 #            tower_config_file: "{{ awx_example_tower_cli_config_path }}"
-          command: >
+          shell: >
             tower-cli project create --organization {{ awx_example_organization }}
             -n {{ awx_example_project_name }}
             --scm-type git --scm-url {{ awx_example_project_scm_url }}
             --scm-update-on-launch true
+          register: r
+
+        - debug: { var: r.cmd.splitlines() }
+        - debug: { var: r.stdout_lines }
 
         tags: tower-cli.project
 
@@ -164,16 +172,25 @@
 
         # tower_inventory_source module is nothing
         - name: Create a inventory source on AWX
-          command: >
+          shell: >
             tower-cli inventory_source create
             -n {{ awx_example_inventory_source_name }}
             -i {{ awx_example_inventory_name }} --source scm
             --source-project {{ awx_example_project_name }} --source-path {{ awx_example_inventory_source_file }}
             --overwrite-vars true
+          register: r
+
+        - debug: { var: r.cmd.splitlines() }
+        - debug: { var: r.stdout_lines }
 
         - name: Update a inventory source on AWX
-          command: >
+          shell: >
             tower-cli inventory_source update {{ awx_example_inventory_source_name }}
+          register: r
+
+        - debug: { var: r.cmd.splitlines() }
+        - debug: { var: r.stdout_lines }
+
 
         tags: tower-cli.inventory
 
@@ -189,13 +206,17 @@
 #            playbook: "{{ awx_example_job_template_playbook }}"
 #            machine_credential: "{{ awx_example_credential_name }}"
 #            tower_config_file: "{{ awx_example_tower_cli_config_path }}"
-          command: >
+          shell: >
             tower-cli job_template create
             -n "Install Nginx"
             -i {{ awx_example_inventory_name }} --project {{ awx_example_project_name }}
             --playbook {{ awx_example_job_template_playbook }}
             --credential {{ awx_example_credential_name }}
             --ask-job-type-on-launch true
+          register: r
+
+        - debug: { var: r.cmd.splitlines() }
+        - debug: { var: r.stdout_lines }
 
         tags: tower-cli.job-template
 
